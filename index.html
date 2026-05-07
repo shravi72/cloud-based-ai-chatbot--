@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nexus AI — Intelligent Cloud Assistant</title>
+  <meta name="description" content="Nexus AI is a premium cloud-hosted AI chatbot. Sign in or explore as a guest to experience cutting-edge conversational AI." />
+  <meta name="theme-color" content="#0a0a14" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/common.css" />
+  <link rel="stylesheet" href="css/first-page.css" />
+</head>
+<body>
+  <div class="first-page" id="first-page">
+
+    <!-- Animated Mesh Gradient Background -->
+    <div class="mesh-bg">
+      <div class="mesh-orb mesh-orb--1"></div>
+      <div class="mesh-orb mesh-orb--2"></div>
+      <div class="mesh-orb mesh-orb--3"></div>
+      <div class="mesh-orb mesh-orb--4"></div>
+      <div class="mesh-grid"></div>
+      <div class="mesh-noise"></div>
+    </div>
+
+    <!-- Centered Login Card -->
+    <main class="login-card" id="login-card">
+      <div class="login-card__glow"></div>
+
+      <!-- Logo -->
+      <div class="login-card__logo">
+        <div class="nexus-logo" id="nexus-logo">
+          <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Outer ring -->
+            <circle cx="32" cy="32" r="28" stroke="url(#nexusGrad1)" stroke-width="2.5" opacity="0.5"/>
+            <!-- Middle ring -->
+            <circle cx="32" cy="32" r="20" stroke="url(#nexusGrad1)" stroke-width="2" opacity="0.8"/>
+            <!-- Inner filled circle -->
+            <circle cx="32" cy="32" r="12" fill="url(#nexusGrad1)" opacity="0.9"/>
+            <!-- Core dot -->
+            <circle cx="32" cy="32" r="4" fill="#ffffff"/>
+            <!-- Orbital dots -->
+            <circle cx="32" cy="4" r="2.5" fill="url(#nexusGrad1)" opacity="0.7">
+              <animateTransform attributeName="transform" type="rotate" from="0 32 32" to="360 32 32" dur="12s" repeatCount="indefinite"/>
+            </circle>
+            <circle cx="60" cy="32" r="2" fill="url(#nexusGrad2)" opacity="0.5">
+              <animateTransform attributeName="transform" type="rotate" from="120 32 32" to="480 32 32" dur="18s" repeatCount="indefinite"/>
+            </circle>
+            <defs>
+              <linearGradient id="nexusGrad1" x1="0" y1="0" x2="64" y2="64">
+                <stop stop-color="#6366F1"/>
+                <stop offset="0.5" stop-color="#8B5CF6"/>
+                <stop offset="1" stop-color="#00E5FF"/>
+              </linearGradient>
+              <linearGradient id="nexusGrad2" x1="0" y1="0" x2="64" y2="64">
+                <stop stop-color="#00E5FF"/>
+                <stop offset="1" stop-color="#6366F1"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <h1 class="login-card__title">Nexus <span class="gradient-text">AI</span></h1>
+      </div>
+
+      <!-- Tagline -->
+      <p class="login-card__tagline">Your intelligent AI assistant.<br/>Powered by cutting-edge language models.</p>
+
+      <!-- Buttons -->
+      <div class="login-card__actions">
+        <!-- Sign in with Google -->
+        <a href="chat.html" class="btn btn--google" id="btn-google">
+          <svg class="btn__google-icon" viewBox="0 0 24 24" width="20" height="20">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          </svg>
+          Sign in with Google
+        </a>
+
+        <!-- Divider -->
+        <div class="login-card__divider">
+          <span>or</span>
+        </div>
+
+        <!-- Guest Access -->
+        <a href="chat.html" class="btn btn--guest" id="btn-guest">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+          Continue as Guest
+        </a>
+      </div>
+
+      <!-- Footer -->
+      <p class="login-card__footer">By continuing, you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a></p>
+    </main>
+
+    <!-- Version badge -->
+    <div class="version-badge">v1.0.0</div>
+  </div>
+</body>
+</html>

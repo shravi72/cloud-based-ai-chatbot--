@@ -1,0 +1,313 @@
+/* ============================================
+   Nexus AI — First Page (Login / Get Started)
+   Mesh gradient + Centered card
+   ============================================ */
+
+/* --- Page Container --- */
+.first-page {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+/* --- Mesh Gradient Background --- */
+.mesh-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 80%, rgba(99, 102, 241, 0.18) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 50% at 80% 20%, rgba(139, 92, 246, 0.12) 0%, transparent 55%),
+    radial-gradient(ellipse 90% 70% at 50% 50%, rgba(0, 229, 255, 0.06) 0%, transparent 50%),
+    linear-gradient(165deg, #0a0a1a 0%, #111128 30%, #0d0d1e 60%, #0a0a14 100%);
+}
+
+.mesh-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(120px);
+  animation: orbDrift 20s ease-in-out infinite;
+}
+
+.mesh-orb--1 {
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.35), transparent 70%);
+  top: -200px;
+  left: -150px;
+  animation-duration: 24s;
+}
+
+.mesh-orb--2 {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.25), transparent 70%);
+  bottom: -150px;
+  right: -100px;
+  animation-duration: 20s;
+  animation-delay: -6s;
+}
+
+.mesh-orb--3 {
+  width: 350px;
+  height: 350px;
+  background: radial-gradient(circle, rgba(0, 229, 255, 0.15), transparent 70%);
+  top: 30%;
+  right: 25%;
+  animation-duration: 28s;
+  animation-delay: -12s;
+}
+
+.mesh-orb--4 {
+  width: 250px;
+  height: 250px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.2), transparent 70%);
+  bottom: 20%;
+  left: 30%;
+  animation-duration: 22s;
+  animation-delay: -8s;
+}
+
+.mesh-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.012) 1px, transparent 1px);
+  background-size: 72px 72px;
+}
+
+.mesh-noise {
+  position: absolute;
+  inset: 0;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* --- Login Card --- */
+.login-card {
+  position: relative;
+  z-index: 10;
+  width: 90%;
+  max-width: 420px;
+  background: var(--bg-surface-elevated);
+  backdrop-filter: blur(60px);
+  -webkit-backdrop-filter: blur(60px);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-2xl);
+  padding: 48px 40px 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  animation: cardEntrance 0.9s var(--ease-out) both;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 8px 40px rgba(0, 0, 0, 0.4),
+    0 20px 80px rgba(99, 102, 241, 0.08);
+}
+
+@keyframes cardEntrance {
+  from {
+    opacity: 0;
+    transform: translateY(32px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.login-card__glow {
+  position: absolute;
+  top: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--accent-indigo), var(--accent-cyan), var(--accent-violet), transparent);
+  border-radius: 2px;
+  opacity: 0.7;
+  animation: subtlePulse 4s ease-in-out infinite;
+}
+
+/* --- Logo Area --- */
+.login-card__logo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.nexus-logo {
+  animation: logoPulse 5s ease-in-out infinite;
+  display: flex;
+}
+
+.login-card__title {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+/* --- Tagline --- */
+.login-card__tagline {
+  font-size: 0.92rem;
+  color: var(--text-secondary);
+  line-height: 1.65;
+  margin-bottom: 32px;
+  max-width: 300px;
+}
+
+/* --- Buttons --- */
+.login-card__actions {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 13px 24px;
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s var(--ease-out);
+  text-decoration: none;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Google Button — Material 3 Filled */
+.btn--google {
+  background: #ffffff;
+  color: #1f1f1f;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.2),
+    0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.btn--google:hover {
+  background: #f8f9fa;
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.25),
+    0 6px 20px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+  opacity: 1;
+}
+
+.btn--google:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.btn__google-icon {
+  flex-shrink: 0;
+}
+
+/* Guest Button — Material 3 Tonal */
+.btn--guest {
+  background: var(--accent-indigo-dim);
+  color: var(--accent-cyan);
+  border: 1px solid var(--border-indigo);
+}
+
+.btn--guest:hover {
+  background: rgba(99, 102, 241, 0.22);
+  border-color: rgba(0, 229, 255, 0.3);
+  box-shadow: 0 0 24px rgba(0, 229, 255, 0.1);
+  transform: translateY(-1px);
+  opacity: 1;
+}
+
+.btn--guest:active {
+  transform: translateY(0);
+}
+
+/* --- Divider --- */
+.login-card__divider {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 4px 0;
+}
+
+.login-card__divider::before,
+.login-card__divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-subtle);
+}
+
+.login-card__divider span {
+  font-size: 0.78rem;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 500;
+}
+
+/* --- Footer --- */
+.login-card__footer {
+  margin-top: 28px;
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+  line-height: 1.5;
+}
+
+.login-card__footer a {
+  color: var(--text-secondary);
+  transition: color 0.2s;
+}
+
+.login-card__footer a:hover {
+  color: var(--accent-cyan);
+  opacity: 1;
+}
+
+/* --- Version Badge --- */
+.version-badge {
+  position: fixed;
+  bottom: 20px;
+  right: 24px;
+  font-size: 0.68rem;
+  color: var(--text-tertiary);
+  opacity: 0.5;
+  z-index: 10;
+  letter-spacing: 0.05em;
+}
+
+/* --- Responsive --- */
+@media (max-width: 480px) {
+  .login-card {
+    padding: 36px 28px 28px;
+    border-radius: var(--radius-xl);
+  }
+
+  .login-card__title {
+    font-size: 1.7rem;
+  }
+
+  .nexus-logo svg {
+    width: 52px;
+    height: 52px;
+  }
+}
