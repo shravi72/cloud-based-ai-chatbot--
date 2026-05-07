@@ -20,6 +20,46 @@ const HAS_SERVER_KEY = GEMINI_API_KEY.length > 0;
 
 const SYSTEM_PROMPT = `You are Nexus, a friendly and brilliant AI assistant. You are helpful, creative, and concise. You use markdown formatting when it improves readability. You excel at coding, writing, analysis, math, and general knowledge. Keep your answers clear and well-structured.`;
 
+// --- Dynamic model discovery with caching ---
+let cachedModels = null;
+let cachedModelsTime = 0;
+const MODEL_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+const MODEL_PRIORITY = [
+  'gemini-2.0-flash',
+  'gemini-2.0-flash-lite',
+  'gemini-2.5-flash-preview-04-17',
+  'gemini-2.5-pro-preview-05-06',
+  'gemini-1.5-flash',
+  'gemini-1.5-pro',
+];
+
+async function getAvailableModels() {
+  // Return cache if fresh
+  if (cachedModels && Date.now() - cachedModelsTime < MODEL_CACHE_TTL) {
+    return cachedModels;
+  }
+
+  try {
+    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${GEMINI_API_KEY}`);
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    if (!data.models) return null;
+
+    const chatModels = data.models
+      .filter(m => m.supportedGenerationMethods?.includes('generateContent'))
+      .map(m => m.name.replace('models/', ''));
+
+    cachedModels = chatModels;
+    cachedModelsTime = Date.now();
+    console.log(`Discovered ${chatModels.length} models: ${chatModels.slice(0, 5).join(', ')}...`);
+    return chatModels;
+  } catch (e) {
+    console.warn('Could not fetch model list:', e.message);
+    return null;
+  }
+}
+
 // --- Security ---
 app.use(helmet({
   contentSecurityPolicy: {
@@ -117,14 +157,22 @@ app.post('/api/chat', apiLimiter, async (req, res) => {
       };
     });
 
-    // Model fallback list
-    const modelsToTry = [
-      geminiModel,
-      'gemini-2.0-flash',
-      'gemini-2.0-flash-lite',
-      'gemini-1.5-flash',
-    ].filter((v, i, a) => a.indexOf(v) === i); // deduplicate
+    // Discover available models dynamically
+    const availableModels = await getAvailableModels();
+    let modelsToTry;
 
+    if (availableModels && availableModels.length > 0) {
+      // Build smart order: requested model first, then by priority, then rest
+      const selected = availableModels.includes(geminiModel) ? [geminiModel] : [];
+      const prioritized = MODEL_PRIORITY.filter(m => availableModels.includes(m) && m !== geminiModel);
+      const rest = availableModels.filter(m => m !== geminiModel && !MODEL_PRIORITY.includes(m));
+      modelsToTry = [...selected, ...prioritized, ...rest];
+    } else {
+      // Couldn't fetch model list — try only the requested model and safe defaults
+      modelsToTry = [geminiModel, 'gemini-2.0-flash'].filter((v, i, a) => a.indexOf(v) === i);
+    }
+
+    console.log(`Trying models: ${modelsToTry.slice(0, 5).join(', ')}${modelsToTry.length > 5 ? '...' : ''}`);
     let lastError = '';
 
     for (const tryModel of modelsToTry) {
