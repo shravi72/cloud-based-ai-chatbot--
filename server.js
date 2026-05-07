@@ -117,6 +117,12 @@ app.get('/api/status', (req, res) => {
     hasServerKey: HAS_SERVER_KEY,
     provider: HAS_SERVER_KEY ? 'gemini' : null,
     keyCount: GEMINI_API_KEYS.length,
+    // Debug: show first 8 chars of each key (safe to expose prefix)
+    keyPreviews: GEMINI_API_KEYS.map(k => k.slice(0, 8) + '...'),
+    envVars: {
+      GEMINI_API_KEY: process.env.GEMINI_API_KEY ? 'set' : 'not set',
+      GEMINI_API_KEYS: process.env.GEMINI_API_KEYS ? 'set' : 'not set',
+    },
   });
 });
 
