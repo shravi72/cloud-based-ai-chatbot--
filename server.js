@@ -126,6 +126,36 @@ app.get('/api/status', (req, res) => {
   });
 });
 
+// --- Test Key: debug endpoint to verify API key works ---
+app.get('/api/test-key', async (req, res) => {
+  if (!HAS_SERVER_KEY) {
+    return res.json({ error: 'No API key configured' });
+  }
+  const key = getActiveKey();
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: 'Say hello in one word.' }] }],
+          generationConfig: { maxOutputTokens: 10, temperature: 0 },
+        }),
+      }
+    );
+    const data = await response.json();
+    res.json({
+      httpStatus: response.status,
+      ok: response.ok,
+      keyPrefix: key.slice(0, 10) + '...',
+      response: data,
+    });
+  } catch (e) {
+    res.json({ error: e.message, keyPrefix: key.slice(0, 10) + '...' });
+  }
+});
+
 // --- Chat API: proxies to Gemini ---
 app.post('/api/chat', apiLimiter, async (req, res) => {
   try {
