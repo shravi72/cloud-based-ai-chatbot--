@@ -14,6 +14,12 @@ const __dirname = dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// --- Gemini API Key from environment ---
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+const HAS_SERVER_KEY = GEMINI_API_KEY.length > 0;
+
+const SYSTEM_PROMPT = `You are Nexus, a friendly and brilliant AI assistant. You are helpful, creative, and concise. You use markdown formatting when it improves readability. You excel at coding, writing, analysis, math, and general knowledge. Keep your answers clear and well-structured.`;
+
 // --- Security ---
 app.use(helmet({
   contentSecurityPolicy: {
@@ -35,7 +41,7 @@ app.use(helmet({
   },
 }));
 app.use(cors());
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '5mb' }));
 
 // Rate limiter
 const apiLimiter = rateLimit({
@@ -49,24 +55,117 @@ const apiLimiter = rateLimit({
 // --- Static Files ---
 app.use(express.static(join(__dirname, '.')));
 
-// --- Placeholder Chat API ---
+// --- API Status: tells frontend if server has a key ---
+app.get('/api/status', (req, res) => {
+  res.json({
+    hasServerKey: HAS_SERVER_KEY,
+    provider: HAS_SERVER_KEY ? 'gemini' : null,
+  });
+});
+
+// --- Chat API: proxies to Gemini ---
 app.post('/api/chat', apiLimiter, async (req, res) => {
   try {
-    const { messages } = req.body;
+    const { messages, model } = req.body;
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return res.status(400).json({ error: 'Messages array is required.' });
     }
 
-    const lastMsg = messages[messages.length - 1]?.content || '';
+    // If no server key, return demo response
+    if (!HAS_SERVER_KEY) {
+      const lastMsg = messages[messages.length - 1]?.content || '';
+      await new Promise(r => setTimeout(r, 300 + Math.random() * 500));
+      return res.json({
+        reply: getSimulatedResponse(lastMsg),
+        model: 'nexus-demo-v1',
+      });
+    }
 
-    // Simulated response with realistic delay
-    await new Promise(r => setTimeout(r, 300 + Math.random() * 500));
+    // Build Gemini-format messages
+    const geminiModel = model || 'gemini-2.0-flash';
+    const geminiMessages = messages.slice(-20).map(m => {
+      const parts = [];
+      if (m.content) parts.push({ text: m.content });
 
-    res.json({
-      reply: getSimulatedResponse(lastMsg),
-      model: 'nexus-demo-v1',
+      // Handle image attachments (base64 inline_data)
+      if (m.attachments && Array.isArray(m.attachments)) {
+        m.attachments.forEach(att => {
+          if (att.type === 'image' && att.dataUrl) {
+            const base64 = att.dataUrl.split(',')[1];
+            parts.push({
+              inline_data: {
+                mime_type: att.mimeType || 'image/jpeg',
+                data: base64,
+              },
+            });
+          } else if (att.type === 'file' && att.dataUrl) {
+            try {
+              const decoded = Buffer.from(att.dataUrl.split(',')[1], 'base64').toString('utf-8');
+              parts.push({ text: `[File: ${att.name}]\n${decoded}` });
+            } catch {
+              parts.push({ text: `[Attached file: ${att.name}]` });
+            }
+          }
+        });
+      }
+
+      if (parts.length === 0) parts.push({ text: '(empty)' });
+      return {
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts,
+      };
     });
+
+    // Model fallback list
+    const modelsToTry = [
+      geminiModel,
+      'gemini-2.0-flash',
+      'gemini-2.0-flash-lite',
+      'gemini-1.5-flash',
+    ].filter((v, i, a) => a.indexOf(v) === i); // deduplicate
+
+    let lastError = '';
+
+    for (const tryModel of modelsToTry) {
+      try {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${tryModel}:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+              contents: geminiMessages,
+              generationConfig: { maxOutputTokens: 8192, temperature: 0.7 },
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          const errMsg = err.error?.message || `HTTP ${response.status}`;
+          const isQuota = response.status === 429 || errMsg.includes('quota') || errMsg.includes('rate');
+          console.log(`Model ${tryModel}: ${isQuota ? 'quota' : 'error'} — ${errMsg}`);
+          lastError = errMsg;
+          continue;
+        }
+
+        const data = await response.json();
+        const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, I could not generate a response.';
+
+        return res.json({ reply, model: tryModel });
+
+      } catch (fetchErr) {
+        lastError = fetchErr.message || 'Network error';
+        continue;
+      }
+    }
+
+    // All models failed
+    console.error('All models failed:', lastError);
+    res.status(502).json({ error: `AI service error: ${lastError}` });
+
   } catch (error) {
     console.error('API Error:', error.message);
     res.status(500).json({ error: 'Something went wrong.' });
@@ -78,7 +177,7 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     service: 'nexus-ai',
-    mode: 'demo',
+    mode: HAS_SERVER_KEY ? 'live' : 'demo',
     uptime: process.uptime(),
   });
 });
@@ -88,7 +187,7 @@ app.get('*', (req, res) => {
   res.sendFile(join(__dirname, 'index.html'));
 });
 
-// --- Simulated Responses ---
+// --- Simulated Responses (used when no API key is configured) ---
 function getSimulatedResponse(userMessage) {
   const msg = userMessage.toLowerCase();
 
@@ -105,6 +204,6 @@ function getSimulatedResponse(userMessage) {
 // --- Start Server ---
 app.listen(PORT, () => {
   console.log(`\n  ✦ Nexus AI running at http://localhost:${PORT}`);
-  console.log(`  📦 Mode: Demo (placeholder API)`);
+  console.log(`  📦 Mode: ${HAS_SERVER_KEY ? 'Live (Gemini API connected)' : 'Demo (no API key)'}`);
   console.log(`  🚀 Ready for deployment\n`);
 });

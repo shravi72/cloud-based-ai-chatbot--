@@ -79,6 +79,25 @@
   // In-memory store for attachment data (not saved to localStorage — too large)
   const attachmentStore = {};  // messageIndex -> [{type, mimeType, dataUrl, name}]
 
+  // Server-side API key detection
+  let serverHasKey = false;
+  let serverProvider = null;
+
+  async function fetchServerStatus() {
+    try {
+      const resp = await fetch('/api/status');
+      if (resp.ok) {
+        const data = await resp.json();
+        serverHasKey = !!data.hasServerKey;
+        serverProvider = data.provider || null;
+      }
+    } catch (e) {
+      console.warn('Could not fetch server status:', e);
+      serverHasKey = false;
+    }
+    updateStatus();
+  }
+
   // =============================================
   // KEY MANAGEMENT — Multi-key system
   // =============================================
@@ -459,6 +478,11 @@
       DOM.statusText.textContent = 'Keys untested';
       DOM.settingApiStatus.textContent = `⚪ ${keys.length} key${keys.length > 1 ? 's' : ''} — tap Test All`;
       DOM.settingApiStatus.style.color = 'var(--text-tertiary)';
+    } else if (serverHasKey) {
+      DOM.statusDot.className = 'status-dot live';
+      DOM.statusText.textContent = `Server API • ${serverProvider === 'gemini' ? 'Gemini' : 'AI'}`;
+      DOM.settingApiStatus.textContent = `✅ Server API connected`;
+      DOM.settingApiStatus.style.color = 'var(--accent-cyan)';
     } else {
       DOM.statusDot.className = 'status-dot demo';
       DOM.statusText.textContent = 'Demo Mode';
@@ -810,6 +834,30 @@
     return data.choices?.[0]?.message?.content || 'Sorry, I could not generate a response.';
   }
 
+  // Call the server-side API proxy (/api/chat)
+  async function callServerAPI(messages, model) {
+    const response = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: messages.slice(-20).map(m => ({
+          role: m.role,
+          content: m.content,
+          attachments: m.attachments || undefined,
+        })),
+        model: model || getModel(),
+      }),
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || `Server error: HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.reply || 'Sorry, I could not generate a response.';
+  }
+
   // Try sending with auto-rotation through available keys
   async function sendWithKeyRotation(chat) {
     const keys = getKeys();
@@ -927,11 +975,16 @@
       const keys = getKeys();
       const hasKeys = keys.length > 0;
 
-      if (!hasKeys) {
+      if (hasKeys) {
+        // Priority 1: User's own keys (client-side direct API calls)
+        reply = await sendWithKeyRotation(chat);
+      } else if (serverHasKey) {
+        // Priority 2: Server-side API proxy (uses GEMINI_API_KEY env var)
+        reply = await callServerAPI(chat.messages, getModel());
+      } else {
+        // Priority 3: Demo mode (no keys anywhere)
         await new Promise(r => setTimeout(r, 600 + Math.random() * 800));
         reply = getDemoResponse(msgContent);
-      } else {
-        reply = await sendWithKeyRotation(chat);
       }
 
       typingEl.remove();
@@ -1221,6 +1274,9 @@
 
     DOM.modelSelect.value = getModel();
     updateStatus();
+
+    // Check if server has an API key configured
+    fetchServerStatus();
 
     // --- Events ---
     DOM.input.addEventListener('input', () => { updateSendButton(); autoResize(); });
