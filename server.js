@@ -14,9 +14,25 @@ const __dirname = dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// --- Gemini API Key from environment ---
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
-const HAS_SERVER_KEY = GEMINI_API_KEY.length > 0;
+// --- Gemini API Keys from environment (supports multiple comma-separated keys) ---
+const GEMINI_API_KEYS = [
+  ...(process.env.GEMINI_API_KEY ? [process.env.GEMINI_API_KEY.trim()] : []),
+  ...(process.env.GEMINI_API_KEYS ? process.env.GEMINI_API_KEYS.split(',').map(k => k.trim()).filter(Boolean) : []),
+].filter((v, i, a) => a.indexOf(v) === i); // deduplicate
+
+let activeKeyIndex = 0;
+const HAS_SERVER_KEY = GEMINI_API_KEYS.length > 0;
+
+function getActiveKey() {
+  return GEMINI_API_KEYS[activeKeyIndex] || GEMINI_API_KEYS[0] || '';
+}
+
+function rotateKey() {
+  if (GEMINI_API_KEYS.length <= 1) return false;
+  activeKeyIndex = (activeKeyIndex + 1) % GEMINI_API_KEYS.length;
+  console.log(`Rotated to key #${activeKeyIndex + 1}/${GEMINI_API_KEYS.length}`);
+  return true;
+}
 
 const SYSTEM_PROMPT = `You are Nexus, a friendly and brilliant AI assistant. You are helpful, creative, and concise. You use markdown formatting when it improves readability. You excel at coding, writing, analysis, math, and general knowledge. Keep your answers clear and well-structured.`;
 
@@ -41,7 +57,7 @@ async function getAvailableModels() {
   }
 
   try {
-    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${GEMINI_API_KEY}`);
+    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${getActiveKey()}`);
     if (!resp.ok) return null;
     const data = await resp.json();
     if (!data.models) return null;
@@ -100,6 +116,7 @@ app.get('/api/status', (req, res) => {
   res.json({
     hasServerKey: HAS_SERVER_KEY,
     provider: HAS_SERVER_KEY ? 'gemini' : null,
+    keyCount: GEMINI_API_KEYS.length,
   });
 });
 
@@ -172,46 +189,63 @@ app.post('/api/chat', apiLimiter, async (req, res) => {
       modelsToTry = [geminiModel, 'gemini-2.0-flash'].filter((v, i, a) => a.indexOf(v) === i);
     }
 
-    console.log(`Trying models: ${modelsToTry.slice(0, 5).join(', ')}${modelsToTry.length > 5 ? '...' : ''}`);
+    console.log(`Trying models: ${modelsToTry.slice(0, 5).join(', ')}${modelsToTry.length > 5 ? '...' : ''} with ${GEMINI_API_KEYS.length} key(s)`);
     let lastError = '';
+    let keysTriedCount = 0;
+    const startKeyIdx = activeKeyIndex;
 
-    for (const tryModel of modelsToTry) {
-      try {
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${tryModel}:generateContent?key=${GEMINI_API_KEY}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-              contents: geminiMessages,
-              generationConfig: { maxOutputTokens: 8192, temperature: 0.7 },
-            }),
+    // Outer loop: rotate through keys
+    do {
+      const apiKey = getActiveKey();
+      keysTriedCount++;
+
+      // Inner loop: try models with current key
+      for (const tryModel of modelsToTry) {
+        try {
+          const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${tryModel}:generateContent?key=${apiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+                contents: geminiMessages,
+                generationConfig: { maxOutputTokens: 8192, temperature: 0.7 },
+              }),
+            }
+          );
+
+          if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            const errMsg = err.error?.message || `HTTP ${response.status}`;
+            const isQuota = response.status === 429 || errMsg.includes('quota') || errMsg.includes('rate');
+            console.log(`Key #${activeKeyIndex + 1} Model ${tryModel}: ${isQuota ? 'quota' : 'error'} — ${errMsg}`);
+            lastError = errMsg;
+
+            if (isQuota) {
+              // Quota hit on this key — rotate to next key and break model loop
+              if (rotateKey()) {
+                console.log(`Quota hit, rotating to key #${activeKeyIndex + 1}`);
+                break;
+              }
+            }
+            continue;
           }
-        );
 
-        if (!response.ok) {
-          const err = await response.json().catch(() => ({}));
-          const errMsg = err.error?.message || `HTTP ${response.status}`;
-          const isQuota = response.status === 429 || errMsg.includes('quota') || errMsg.includes('rate');
-          console.log(`Model ${tryModel}: ${isQuota ? 'quota' : 'error'} — ${errMsg}`);
-          lastError = errMsg;
+          const data = await response.json();
+          const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, I could not generate a response.';
+
+          return res.json({ reply, model: tryModel });
+
+        } catch (fetchErr) {
+          lastError = fetchErr.message || 'Network error';
           continue;
         }
-
-        const data = await response.json();
-        const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, I could not generate a response.';
-
-        return res.json({ reply, model: tryModel });
-
-      } catch (fetchErr) {
-        lastError = fetchErr.message || 'Network error';
-        continue;
       }
-    }
+    } while (activeKeyIndex !== startKeyIdx && keysTriedCount < GEMINI_API_KEYS.length);
 
-    // All models failed
-    console.error('All models failed:', lastError);
+    // All keys and models failed
+    console.error(`All ${GEMINI_API_KEYS.length} key(s) and models failed:`, lastError);
     res.status(502).json({ error: `AI service error: ${lastError}` });
 
   } catch (error) {
@@ -252,6 +286,6 @@ function getSimulatedResponse(userMessage) {
 // --- Start Server ---
 app.listen(PORT, () => {
   console.log(`\n  ✦ Nexus AI running at http://localhost:${PORT}`);
-  console.log(`  📦 Mode: ${HAS_SERVER_KEY ? 'Live (Gemini API connected)' : 'Demo (no API key)'}`);
+  console.log(`  📦 Mode: ${HAS_SERVER_KEY ? `Live (${GEMINI_API_KEYS.length} API key${GEMINI_API_KEYS.length > 1 ? 's' : ''} loaded)` : 'Demo (no API key)'}`);
   console.log(`  🚀 Ready for deployment\n`);
 });
